@@ -1,0 +1,17 @@
+[package]
+name = "symbit"
+description = "Symbolic bitvector library with bitwise and integer arithmetic support"
+categories = ["mathematics", "science", "security", "simulation"]
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+repository = "https://github.com/mnemonikr/symbit"
+rust-version = "1.88"
+
+[dependencies]
+aiger-circuit = { version = "1", optional = true }
+thiserror = "2"
+
+[features]
+# Enables integration with aiger-circuit for generating AIGER formatted circuit
+aiger = ["dep:aiger-circuit"]
