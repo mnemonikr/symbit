@@ -13,7 +13,7 @@ A symbolic bitvectors[^bitvec] library for use with theorem provers and other bi
 ```rust
 # use symbit::{Evaluator, SymbolicBitVec};
 # fn f() -> Option<()> {
-// Create 32-bit symbolic bitvecs. Each bit is an independent variable.
+// Create 32-bit bitvecs where each bit is an independent variable.
 let x = SymbolicBitVec::with_size(32);
 let y = SymbolicBitVec::with_size(32);
 
