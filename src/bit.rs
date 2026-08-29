@@ -181,3 +181,9 @@ impl Constraint {
         false
     }
 }
+
+impl From<Constraint> for SymbolicBit {
+    fn from(value: Constraint) -> Self {
+        Self(value)
+    }
+}
