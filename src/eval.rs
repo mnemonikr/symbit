@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{SymbolicBit, SymbolicBitVec};
+use crate::{Constraint, SymbolicBitVec};
 
-/// A simple evaluator that evaluates a [SymbolicBit] given a [VariableAssignments]. Portions of the
+/// A simple evaluator that evaluates a [Constraint] given a [VariableAssignments]. Portions of the
 /// evaluation may be cached since the variable assignments are fixed for a given evaluator.
 #[derive(Clone, Debug, Default)]
 pub struct Evaluator {
@@ -31,13 +31,13 @@ impl Evaluator {
         }
     }
 
-    pub fn evaluate(&self, bit: &SymbolicBit) -> Evaluation {
+    pub fn evaluate(&self, bit: &Constraint) -> Evaluation {
         match bit {
-            SymbolicBit::Literal(x) => Evaluation {
+            Constraint::Literal(x) => Evaluation {
                 response: Some(*x),
                 ..Default::default()
             },
-            SymbolicBit::Variable(id) => {
+            Constraint::Variable(id) => {
                 let response = self.assignments.get(*id);
                 if let Some(x) = response {
                     Evaluation {
@@ -53,12 +53,12 @@ impl Evaluator {
                     }
                 }
             }
-            SymbolicBit::Not(bit) => {
+            Constraint::Not(bit) => {
                 let mut evaluation = self.evaluate(bit);
                 evaluation.response = evaluation.response.map(|x| !x);
                 evaluation
             }
-            SymbolicBit::And(lhs, rhs) => {
+            Constraint::And(lhs, rhs) => {
                 let mut lhs = self.evaluate(lhs);
                 if let Some(lhs_response) = lhs.response {
                     if !lhs_response {
@@ -115,13 +115,10 @@ impl VariableAssignments {
     pub fn from_bitvecs(variables: &SymbolicBitVec, literals: &SymbolicBitVec) -> Self {
         let iter =
             std::iter::zip(variables.iter(), literals.iter()).filter_map(|(variable, literal)| {
-                if let SymbolicBit::Variable(variable) = variable
-                    && let SymbolicBit::Literal(literal) = literal
-                {
-                    return Some((*variable, *literal));
+                match (variable.maybe_variable(), literal.maybe_literal()) {
+                    (Some(variable), Some(literal)) => Some((variable, literal)),
+                    _ => None,
                 }
-
-                None
             });
         Self::from_iter(iter)
     }

@@ -27,14 +27,14 @@ let y_msb = y.msb()?.maybe_variable()?;
 let eval = Evaluator::new([(x_msb, true), (y_msb, true)]);
 
 // If x and y are negative then z should be positive (msb = 0)
-let e = eval.evaluate(z.msb()?);
+let e = eval.evaluate(z.msb()?.constraint());
 assert_eq!(e.response, Some(false));
 
 // Only the msb from x and y were used in this determination
 assert_eq!(e.used_variables.len(), 2);
 
 // The least significant bit (lsb) of the product is a variable.
-let e = eval.evaluate(z.lsb()?);
+let e = eval.evaluate(z.lsb()?.constraint());
 assert!(e.response.is_none());
 
 // The product lsb is dependent only on the lsb of x and y.

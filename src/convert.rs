@@ -1,4 +1,4 @@
-use crate::bit::{FALSE, SymbolicBit};
+use crate::bit::SymbolicBit;
 use crate::buf::{SymbolicBitBuf, SymbolicByte};
 use crate::vec::SymbolicBitVec;
 
@@ -13,7 +13,7 @@ pub enum ConcretizationError {
 
 impl From<bool> for SymbolicBit {
     fn from(value: bool) -> Self {
-        SymbolicBit::Literal(value)
+        SymbolicBit::literal(value)
     }
 }
 
@@ -21,11 +21,9 @@ impl TryFrom<SymbolicBit> for bool {
     type Error = ConcretizationError;
 
     fn try_from(value: SymbolicBit) -> Result<Self, Self::Error> {
-        if let SymbolicBit::Literal(value) = value {
-            Ok(value)
-        } else {
-            Err(ConcretizationError::NonLiteralBit { bit_index: 0 })
-        }
+        value
+            .maybe_literal()
+            .ok_or(ConcretizationError::NonLiteralBit { bit_index: 0 })
     }
 }
 
@@ -216,10 +214,10 @@ impl FromIterator<u8> for SymbolicBitVec {
 
 pub fn symbolize(iter: impl IntoIterator<Item = u8>) -> impl Iterator<Item = SymbolicBit> {
     iter.into_iter().flat_map(|byte| {
-        let mut bits = [FALSE; 8];
+        let mut bits = [const { SymbolicBit::zero() }; 8];
 
         for (index, bit) in bits.iter_mut().enumerate() {
-            *bit = SymbolicBit::Literal((byte & (1 << index)) > 0);
+            *bit = SymbolicBit::literal((byte & (1 << index)) > 0);
         }
 
         bits
@@ -264,20 +262,16 @@ where
     let mut bytes = [0u8; N];
     let mut byte_index = 0;
     let mut bit_index = 0;
-    for cow_bit in iter {
+    for bit in iter {
         if byte_index >= N {
             return Err(ConcretizationError::Overflow { max_bytes: N });
         }
 
-        let bit = match cow_bit {
-            std::borrow::Cow::Owned(SymbolicBit::Literal(bit)) => bit,
-            std::borrow::Cow::Borrowed(SymbolicBit::Literal(bit)) => *bit,
-            _ => {
-                return Err(ConcretizationError::NonLiteralBit {
-                    bit_index: 8 * byte_index + bit_index,
-                });
-            }
-        };
+        let bit = bit
+            .maybe_literal()
+            .ok_or_else(|| ConcretizationError::NonLiteralBit {
+                bit_index: 8 * byte_index + bit_index,
+            })?;
 
         if bit {
             bytes[byte_index] |= 1 << bit_index;
