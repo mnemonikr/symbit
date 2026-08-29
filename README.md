@@ -1,6 +1,6 @@
 # Overview
 
-A symbolic bitvectors[^bitvec] library for use with theorem provers and other binary analysis tools. Supported operations include:
+A symbolic bitvector[^bitvec] library for use with theorem provers and other binary analysis tools. Supported operations include:
 
 * Bitwise arithmetic (`&`, `|`, `^`, `!`)
 * Bit manipulation (`<<`, `>>`, extension, truncation)
