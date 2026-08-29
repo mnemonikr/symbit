@@ -1,18 +1,16 @@
-use std::rc::Rc;
-
 use crate::*;
 
 #[test]
 fn evaluate_literal() {
     let eval = Evaluator::default();
-    assert!(eval.evaluate(&TRUE).response.unwrap());
-    assert!(!eval.evaluate(&FALSE).response.unwrap());
+    assert!(eval.evaluate(&Constraint::Literal(true)).response.unwrap());
+    assert!(!eval.evaluate(&Constraint::Literal(false)).response.unwrap());
 }
 
 #[test]
 fn evaluate_variable() {
-    let x = SymbolicBit::Variable(0);
-    let y = SymbolicBit::Variable(1);
+    let x = Constraint::Variable(0);
+    let y = Constraint::Variable(1);
     let evaluator = Evaluator::new(VariableAssignments::from_iter([(0, true), (1, false)]));
     let x_eval = evaluator.evaluate(&x);
 
@@ -34,11 +32,11 @@ fn evaluate_variable() {
 
 #[test]
 fn evaluate_expression() {
-    let x = SymbolicBit::Variable(0);
-    let y = SymbolicBit::Variable(1);
+    let x = SymbolicBit::variable(0);
+    let y = SymbolicBit::variable(1);
     let evaluator = Evaluator::new(VariableAssignments::from_iter([(0, true), (1, false)]));
     let z = x ^ y;
-    let evaluation = evaluator.evaluate(&z);
+    let evaluation = evaluator.evaluate(z.constraint());
 
     assert!(
         evaluation.response.unwrap(),
@@ -56,11 +54,11 @@ fn evaluate_expression() {
 
 #[test]
 fn evaluate_symbolic_expression() {
-    let x = SymbolicBit::Variable(0);
-    let y = SymbolicBit::Variable(1);
+    let x = SymbolicBit::variable(0);
+    let y = SymbolicBit::variable(1);
     let evaluator = Evaluator::new(VariableAssignments::from_iter(std::iter::empty()));
     let z = x ^ y;
-    let evaluation = evaluator.evaluate(&z);
+    let evaluation = evaluator.evaluate(z.constraint());
 
     assert!(
         evaluation.response.is_none(),
@@ -77,11 +75,11 @@ fn evaluate_symbolic_expression() {
 
 #[test]
 fn evaluate_false_and_symbolic() {
-    let x = SymbolicBit::Variable(0);
-    let y = SymbolicBit::Variable(1);
-    let z = SymbolicBit::And(Rc::new(x), Rc::new(y));
+    let x = SymbolicBit::variable(0);
+    let y = SymbolicBit::variable(1);
+    let z = x & y;
     let evaluator = Evaluator::new(VariableAssignments::from_iter([(0, false)]));
-    let evaluation = evaluator.evaluate(&z);
+    let evaluation = evaluator.evaluate(z.constraint());
 
     assert!(!evaluation.response.unwrap(), "evaluation should be false");
     assert!(
@@ -92,11 +90,11 @@ fn evaluate_false_and_symbolic() {
 
 #[test]
 fn evaluate_true_and_symbolic() {
-    let x = SymbolicBit::Variable(0);
-    let y = SymbolicBit::Variable(1);
-    let z = SymbolicBit::And(Rc::new(x), Rc::new(y));
+    let x = SymbolicBit::variable(0);
+    let y = SymbolicBit::variable(1);
+    let z = x & y;
     let evaluator = Evaluator::new(VariableAssignments::from_iter([(0, true)]));
-    let evaluation = evaluator.evaluate(&z);
+    let evaluation = evaluator.evaluate(z.constraint());
 
     assert!(
         evaluation.response.is_none(),
@@ -110,11 +108,11 @@ fn evaluate_true_and_symbolic() {
 
 #[test]
 fn evaluate_symbolic_and_false() {
-    let x = SymbolicBit::Variable(0);
-    let y = SymbolicBit::Variable(1);
-    let z = SymbolicBit::And(Rc::new(x), Rc::new(y));
+    let x = SymbolicBit::variable(0);
+    let y = SymbolicBit::variable(1);
+    let z = x & y;
     let evaluator = Evaluator::new(VariableAssignments::from_iter([(1, false)]));
-    let evaluation = evaluator.evaluate(&z);
+    let evaluation = evaluator.evaluate(z.constraint());
 
     assert!(!evaluation.response.unwrap(), "evaluation should be false");
     assert!(
@@ -125,11 +123,11 @@ fn evaluate_symbolic_and_false() {
 
 #[test]
 fn evaluate_symbolic_and_true() {
-    let x = SymbolicBit::Variable(0);
-    let y = SymbolicBit::Variable(1);
-    let z = SymbolicBit::And(Rc::new(x), Rc::new(y));
+    let x = SymbolicBit::variable(0);
+    let y = SymbolicBit::variable(1);
+    let z = x & y;
     let evaluator = Evaluator::new(VariableAssignments::from_iter([(1, true)]));
-    let evaluation = evaluator.evaluate(&z);
+    let evaluation = evaluator.evaluate(z.constraint());
 
     assert!(
         evaluation.response.is_none(),
@@ -143,8 +141,8 @@ fn evaluate_symbolic_and_true() {
 
 #[test]
 fn var_assignments_from_bitvecs() {
-    let variables = SymbolicBitVec::from_iter([SymbolicBit::Variable(0), SymbolicBit::Variable(1)]);
-    let literals = SymbolicBitVec::from_iter([TRUE, FALSE]);
+    let variables = SymbolicBitVec::from_iter([SymbolicBit::variable(0), SymbolicBit::variable(1)]);
+    let literals = SymbolicBitVec::from_iter([SymbolicBit::one(), SymbolicBit::zero()]);
     let assignments = VariableAssignments::from_bitvecs(&variables, &literals);
     assert!(assignments.get(0).unwrap());
     assert!(!assignments.get(1).unwrap());
@@ -152,8 +150,8 @@ fn var_assignments_from_bitvecs() {
 
 #[test]
 fn var_assignments_from_swapped_bitvecs() {
-    let variables = SymbolicBitVec::from_iter([SymbolicBit::Variable(0), SymbolicBit::Variable(1)]);
-    let literals = SymbolicBitVec::from_iter([TRUE, FALSE]);
+    let variables = SymbolicBitVec::from_iter([SymbolicBit::variable(0), SymbolicBit::variable(1)]);
+    let literals = SymbolicBitVec::from_iter([SymbolicBit::one(), SymbolicBit::zero()]);
 
     // Swapped the literals and the variables
     let assignments = VariableAssignments::from_bitvecs(&literals, &variables);
@@ -164,9 +162,9 @@ fn var_assignments_from_swapped_bitvecs() {
 
 #[test]
 fn var_assignments_from_bitvecs_without_literals() {
-    let variables = SymbolicBitVec::from_iter([SymbolicBit::Variable(0), SymbolicBit::Variable(1)]);
+    let variables = SymbolicBitVec::from_iter([SymbolicBit::variable(0), SymbolicBit::variable(1)]);
 
-    // Swapped the literals and the variables
+    // No literals provided
     let assignments = VariableAssignments::from_bitvecs(&variables, &variables);
 
     assert!(assignments.get(0).is_none());
@@ -175,19 +173,19 @@ fn var_assignments_from_bitvecs_without_literals() {
 
 #[test]
 fn evaluator_from_assignments() {
-    let variables = SymbolicBitVec::from_iter([SymbolicBit::Variable(0), SymbolicBit::Variable(1)]);
-    let literals = SymbolicBitVec::from_iter([TRUE, FALSE]);
+    let variables = SymbolicBitVec::from_iter([SymbolicBit::variable(0), SymbolicBit::variable(1)]);
+    let literals = SymbolicBitVec::from_iter([SymbolicBit::one(), SymbolicBit::zero()]);
     let assignments = VariableAssignments::from_bitvecs(&variables, &literals);
     let evaluator = Evaluator::from(assignments);
     assert!(
         evaluator
-            .evaluate(&SymbolicBit::Variable(0))
+            .evaluate(&Constraint::Variable(0))
             .response
             .unwrap()
     );
     assert!(
         !evaluator
-            .evaluate(&SymbolicBit::Variable(1))
+            .evaluate(&Constraint::Variable(1))
             .response
             .unwrap()
     );

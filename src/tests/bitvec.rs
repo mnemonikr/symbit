@@ -43,12 +43,12 @@ fn addition_overflow_carry() {
     let x: SymbolicBitVec = u8::MAX.into();
     let y: SymbolicBitVec = 1u8.into();
     let carry = x.addition_carry_bits(y);
-    assert_eq!(carry[8], SymbolicBit::Literal(true));
+    assert_eq!(carry[8], SymbolicBit::one());
 
     let x: SymbolicBitVec = (u8::MAX - 1).into();
     let y: SymbolicBitVec = 1u8.into();
     let carry = x.addition_carry_bits(y);
-    assert_eq!(carry[8], SymbolicBit::Literal(false));
+    assert_eq!(carry[8], SymbolicBit::zero());
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn subtraction_borrows() {
         let (_, borrows) = x.subtraction_with_borrow(y);
         assert_eq!(
             borrows,
-            SymbolicBit::Literal(expected_result),
+            SymbolicBit::literal(expected_result),
             "expected {lhs:#02x} - {rhs:#02x} borrow to be {expected_result}"
         );
     }
@@ -176,12 +176,12 @@ fn one_bit_equality() {
     let x = SymbolicBitVec::constant(0, 1);
     let y = SymbolicBitVec::constant(0, 1);
     let eq = x.equals(y);
-    assert_eq!(eq, SymbolicBit::Literal(true));
+    assert_eq!(eq, SymbolicBit::one());
 
     let x = SymbolicBitVec::constant(0, 1);
     let y = SymbolicBitVec::constant(1, 1);
     let eq = x.equals(y);
-    assert_eq!(eq, SymbolicBit::Literal(false));
+    assert_eq!(eq, SymbolicBit::zero());
 }
 
 #[test]
@@ -190,8 +190,8 @@ fn equals() {
     let y: SymbolicBitVec = 0xDEEDF00Du32.into();
     let eq = x.clone().equals(x.clone());
     let neq = x.equals(y);
-    assert_eq!(eq, SymbolicBit::Literal(true));
-    assert_eq!(neq, SymbolicBit::Literal(false));
+    assert_eq!(eq, SymbolicBit::one());
+    assert_eq!(neq, SymbolicBit::zero());
 }
 
 #[test]
@@ -201,7 +201,7 @@ fn less_than() {
             let sym_x = SymbolicBitVec::constant(x.into(), 4);
             let sym_y = SymbolicBitVec::constant(y.into(), 4);
             let result = sym_x.less_than(sym_y);
-            assert_eq!(result, SymbolicBit::Literal(x < y), "failed {x} < {y}");
+            assert_eq!(result, SymbolicBit::literal(x < y), "failed {x} < {y}");
         }
     }
 }
@@ -213,7 +213,7 @@ fn greater_than() {
             let sym_x = SymbolicBitVec::constant(x.into(), 4);
             let sym_y = SymbolicBitVec::constant(y.into(), 4);
             let result = sym_x.greater_than(sym_y);
-            assert_eq!(result, SymbolicBit::Literal(x > y), "failed {x} > {y}");
+            assert_eq!(result, SymbolicBit::literal(x > y), "failed {x} > {y}");
         }
     }
 }
@@ -227,27 +227,27 @@ fn signed_less_than() {
 
     assert_eq!(
         neg_two.clone().signed_less_than(neg_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect -2 < -1 (signed comparison)",
     );
     assert_eq!(
         neg_one.clone().signed_less_than(pos_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect -1 < 1 (signed comparison)",
     );
     assert_eq!(
         pos_one.clone().signed_less_than(pos_two.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect 1 < 2 (signed comparison)",
     );
     assert_eq!(
         pos_one.clone().signed_less_than(pos_one.clone()),
-        SymbolicBit::Literal(false),
+        SymbolicBit::zero(),
         "Expect 1 < 1 to be false (signed comparison)",
     );
     assert_eq!(
         neg_one.clone().signed_less_than(neg_one.clone()),
-        SymbolicBit::Literal(false),
+        SymbolicBit::zero(),
         "Expect -1 < -1 to be false (signed comparison)",
     );
 }
@@ -261,27 +261,27 @@ fn signed_greater_than() {
 
     assert_eq!(
         pos_two.clone().signed_greater_than(pos_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect 2 > 1 (signed comparison)",
     );
     assert_eq!(
         pos_one.clone().signed_greater_than(neg_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect 1 > -1 (signed comparison)",
     );
     assert_eq!(
         neg_one.clone().signed_greater_than(neg_two.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect -1 > -2 (signed comparison)",
     );
     assert_eq!(
         pos_one.clone().signed_greater_than(pos_one.clone()),
-        SymbolicBit::Literal(false),
+        SymbolicBit::zero(),
         "Expect 1 > 1 to be false (signed comparison)",
     );
     assert_eq!(
         neg_one.clone().signed_greater_than(neg_one.clone()),
-        SymbolicBit::Literal(false),
+        SymbolicBit::zero(),
         "Expect -1 > -1 to be false (signed comparison)",
     );
 }
@@ -295,27 +295,27 @@ fn signed_less_than_eq() {
 
     assert_eq!(
         neg_two.clone().signed_less_than_eq(neg_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect -2 < -1 (signed comparison)",
     );
     assert_eq!(
         neg_one.clone().signed_less_than_eq(pos_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect -1 < 1 (signed comparison)",
     );
     assert_eq!(
         pos_one.clone().signed_less_than_eq(pos_two.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect 1 < 2 (signed comparison)",
     );
     assert_eq!(
         pos_one.clone().signed_less_than_eq(pos_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect 1 < 1 (signed comparison)",
     );
     assert_eq!(
         neg_one.clone().signed_less_than_eq(neg_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect -1 < -1 (signed comparison)",
     );
 }
@@ -329,27 +329,27 @@ fn signed_greater_than_eq() {
 
     assert_eq!(
         pos_two.clone().signed_greater_than_eq(pos_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect 2 >= 1 (signed comparison)",
     );
     assert_eq!(
         pos_one.clone().signed_greater_than_eq(neg_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect 1 >= -1 (signed comparison)",
     );
     assert_eq!(
         neg_one.clone().signed_greater_than_eq(neg_two.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect -1 >= -2 (signed comparison)",
     );
     assert_eq!(
         pos_one.clone().signed_greater_than_eq(pos_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect 1 >= 1 (signed comparison)",
     );
     assert_eq!(
         neg_one.clone().signed_greater_than_eq(neg_one.clone()),
-        SymbolicBit::Literal(true),
+        SymbolicBit::one(),
         "Expect -1 >= -1 (signed comparison)",
     );
 }

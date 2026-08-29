@@ -1,5 +1,5 @@
 use super::{ShiftDirection, SymbolicBitVec};
-use crate::bit::{FALSE, SymbolicBit};
+use crate::bit::SymbolicBit;
 
 impl std::ops::Index<usize> for SymbolicBitVec {
     type Output = SymbolicBit;
@@ -87,7 +87,7 @@ impl std::ops::Shl for SymbolicBitVec {
 
 impl std::ops::ShlAssign<usize> for SymbolicBitVec {
     fn shl_assign(&mut self, rhs: usize) {
-        self.shift_mut(rhs, FALSE, ShiftDirection::Left);
+        self.shift_mut(rhs, SymbolicBit::zero(), ShiftDirection::Left);
     }
 }
 
@@ -95,7 +95,7 @@ impl std::ops::ShlAssign for SymbolicBitVec {
     fn shl_assign(&mut self, rhs: Self) {
         for (i, shift_bit) in rhs.bits.into_iter().enumerate() {
             let mut shifted_value = self.clone();
-            shifted_value.shift_mut(1 << i, FALSE, ShiftDirection::Left);
+            shifted_value.shift_mut(1 << i, SymbolicBit::zero(), ShiftDirection::Left);
             self.mux_mut(shifted_value, !shift_bit);
         }
     }
@@ -106,7 +106,7 @@ impl std::ops::ShrAssign for SymbolicBitVec {
     fn shr_assign(&mut self, rhs: Self) {
         for (i, shift_bit) in rhs.bits.into_iter().enumerate() {
             let mut shifted_value = self.clone();
-            shifted_value.shift_mut(1 << i, FALSE, ShiftDirection::Right);
+            shifted_value.shift_mut(1 << i, SymbolicBit::zero(), ShiftDirection::Right);
             self.mux_mut(shifted_value, !shift_bit);
         }
     }
@@ -114,7 +114,7 @@ impl std::ops::ShrAssign for SymbolicBitVec {
 
 impl std::ops::ShrAssign<usize> for SymbolicBitVec {
     fn shr_assign(&mut self, rhs: usize) {
-        self.shift_mut(rhs, FALSE, ShiftDirection::Right);
+        self.shift_mut(rhs, SymbolicBit::zero(), ShiftDirection::Right);
     }
 }
 

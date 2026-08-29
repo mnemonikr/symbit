@@ -1,11 +1,17 @@
 use std::rc::Rc;
 
-pub const FALSE: SymbolicBit = SymbolicBit::Literal(false);
-pub const TRUE: SymbolicBit = SymbolicBit::Literal(true);
+const ZERO: SymbolicBit = SymbolicBit(Constraint::Literal(false));
+const ONE: SymbolicBit = SymbolicBit(Constraint::Literal(true));
+
+/// A binary bit with constraints on its underlying value. The bit is considered to be concrete if
+/// the underlying value is either 1 (true) or 0 (false). Otherwise the bit is considered symbolic.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct SymbolicBit(Constraint);
 
 /// A value that can be used to represent a variable bit, possibly with constraints on its value.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SymbolicBit {
+pub enum Constraint {
     /// A literal `true` or `false` value.
     Literal(bool),
 
@@ -23,20 +29,49 @@ pub enum SymbolicBit {
 }
 
 impl SymbolicBit {
-    pub fn maybe_literal(&self) -> Option<bool> {
-        match self {
-            Self::Literal(b) => Some(*b),
+    /// Concrete `true` bit 1.
+    pub const fn one() -> Self {
+        ONE
+    }
+
+    /// Concrete `false` bit 0.
+    pub const fn zero() -> Self {
+        ZERO
+    }
+
+    /// Concrete bit that is the `literal` provided.
+    pub const fn literal(literal: bool) -> Self {
+        if literal { ONE } else { ZERO }
+    }
+
+    /// Symbolic bit associated with a variable assigned the opaque identifier. Variables with the
+    /// same identifier are considered to be identical, which has consequences for logic operations.
+    pub const fn variable(id: usize) -> Self {
+        Self(Constraint::Variable(id))
+    }
+
+    /// Returns underlying concrete value if bit is concrete, `None` otherwise.
+    pub const fn maybe_literal(&self) -> Option<bool> {
+        match &self.0 {
+            Constraint::Literal(b) => Some(*b),
             _ => None,
         }
     }
 
-    pub fn maybe_variable(&self) -> Option<usize> {
-        match self {
-            Self::Variable(id) => Some(*id),
+    /// Returns underlying variable id if bit is a variable, `None` otherwise.
+    pub const fn maybe_variable(&self) -> Option<usize> {
+        match &self.0 {
+            Constraint::Variable(id) => Some(*id),
             _ => None,
         }
     }
 
+    pub fn constraint(&self) -> &Constraint {
+        &self.0
+    }
+}
+
+impl SymbolicBit {
     pub fn equals(self, rhs: Self) -> Self {
         (self.clone() & rhs.clone()) | (!self & !rhs)
     }
@@ -44,7 +79,64 @@ impl SymbolicBit {
     pub fn select(self, lhs: Self, rhs: Self) -> Self {
         (self.clone() & lhs) | (!self & rhs)
     }
+}
 
+impl Default for SymbolicBit {
+    fn default() -> Self {
+        ZERO
+    }
+}
+
+impl std::ops::Not for SymbolicBit {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        let constraint = match self.0 {
+            Constraint::Literal(b) => Constraint::Literal(!b),
+            Constraint::Not(y) => Rc::unwrap_or_clone(y),
+            _ => Constraint::Not(Rc::new(self.0)),
+        };
+
+        Self(constraint)
+    }
+}
+
+impl std::ops::BitAnd for SymbolicBit {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        if self.0.is_identical(&rhs.0) {
+            return self;
+        }
+
+        match (&self.0, &rhs.0) {
+            (Constraint::Literal(false), _) | (_, Constraint::Literal(false)) => ZERO,
+            (Constraint::Literal(true), _) => rhs,
+            (_, Constraint::Literal(true)) => self,
+            (Constraint::Not(x), y) if x.is_identical(y) => ZERO,
+            (x, Constraint::Not(y)) if x.is_identical(y) => ZERO,
+            _ => Self(Constraint::And(Rc::new(self.0), Rc::new(rhs.0))),
+        }
+    }
+}
+
+impl std::ops::BitOr for SymbolicBit {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        !(!self & !rhs)
+    }
+}
+
+impl std::ops::BitXor for SymbolicBit {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        (self.clone() & !rhs.clone()) | (!self & rhs)
+    }
+}
+
+impl Constraint {
     pub fn is_identical(&self, rhs: &Self) -> bool {
         match self {
             Self::Literal(x) => {
@@ -87,66 +179,5 @@ impl SymbolicBit {
         }
 
         false
-    }
-}
-
-impl Default for SymbolicBit {
-    fn default() -> Self {
-        FALSE
-    }
-}
-
-impl std::ops::Not for SymbolicBit {
-    type Output = Self;
-
-    fn not(self) -> Self::Output {
-        match self {
-            SymbolicBit::Literal(false) => SymbolicBit::Literal(true),
-            SymbolicBit::Literal(true) => SymbolicBit::Literal(false),
-            SymbolicBit::Not(y) => Rc::unwrap_or_clone(y),
-            _ => SymbolicBit::Not(Rc::new(self)),
-        }
-    }
-}
-
-impl std::ops::BitAnd for SymbolicBit {
-    type Output = Self;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
-        if self.is_identical(&rhs) {
-            return self;
-        }
-
-        match self {
-            SymbolicBit::Literal(false) => return SymbolicBit::Literal(false),
-            SymbolicBit::Literal(true) => return rhs,
-            SymbolicBit::Not(z) if z.is_identical(&rhs) => return SymbolicBit::Literal(false),
-            _ => (),
-        }
-
-        match rhs {
-            SymbolicBit::Literal(false) => return SymbolicBit::Literal(false),
-            SymbolicBit::Literal(true) => return self,
-            SymbolicBit::Not(z) if z.is_identical(&self) => return SymbolicBit::Literal(false),
-            _ => (),
-        }
-
-        SymbolicBit::And(Rc::new(self), Rc::new(rhs))
-    }
-}
-
-impl std::ops::BitOr for SymbolicBit {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        !(!self & !rhs)
-    }
-}
-
-impl std::ops::BitXor for SymbolicBit {
-    type Output = Self;
-
-    fn bitxor(self, rhs: Self) -> Self::Output {
-        (self.clone() & !rhs.clone()) | (!self & rhs)
     }
 }

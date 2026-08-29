@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::bit::{FALSE, SymbolicBit, TRUE};
+use crate::bit::SymbolicBit;
 use crate::buf::SymbolicByte;
 
 mod convert;
@@ -51,7 +51,7 @@ impl SymbolicBitVec {
         let start_symbol = START_SYMBOL.fetch_add(num_bits, Ordering::SeqCst);
         let mut bits = VecDeque::with_capacity(num_bits);
         for i in 0..num_bits {
-            bits.push_back(SymbolicBit::Variable(start_symbol + i));
+            bits.push_back(SymbolicBit::variable(start_symbol + i));
         }
 
         Self { bits }
@@ -61,14 +61,14 @@ impl SymbolicBitVec {
         assert!(self.bits.len().is_multiple_of(8));
         let num_bytes = self.bits.len() / 8;
 
-        let mut bits = [FALSE; 8];
+        let mut bits = [const { SymbolicBit::zero() }; 8];
         let mut bytes = Vec::with_capacity(num_bytes);
 
         for (i, bit) in self.bits.into_iter().enumerate() {
             bits[i % 8] = bit;
             if (i + 1).is_multiple_of(8) {
                 bytes.push(bits.into());
-                bits = [FALSE; 8];
+                bits = [const { SymbolicBit::zero() }; 8];
             }
         }
 
@@ -97,7 +97,7 @@ impl SymbolicBitVec {
     pub fn constant(mut value: usize, num_bits: usize) -> Self {
         let mut bits = VecDeque::with_capacity(num_bits);
         for _ in 0..num_bits {
-            bits.push_back(SymbolicBit::Literal(value & 0x1 > 0));
+            bits.push_back(SymbolicBit::literal(value & 0x1 > 0));
             value >>= 1;
         }
 
@@ -110,24 +110,22 @@ impl SymbolicBitVec {
 
     pub fn signed_minimum_value(num_bits: usize) -> Self {
         Self {
-            bits: std::iter::repeat_n(FALSE, num_bits - 1)
-                .chain(std::iter::once(TRUE))
+            bits: std::iter::repeat_n(SymbolicBit::zero(), num_bits - 1)
+                .chain(std::iter::once(SymbolicBit::one()))
                 .collect(),
         }
     }
 
     pub fn signed_maximum_value(num_bits: usize) -> Self {
         Self {
-            bits: std::iter::repeat_n(TRUE, num_bits - 1)
-                .chain(std::iter::once(FALSE))
+            bits: std::iter::repeat_n(SymbolicBit::one(), num_bits - 1)
+                .chain(std::iter::once(SymbolicBit::zero()))
                 .collect(),
         }
     }
 
     pub fn contains_variable(&self) -> bool {
-        self.bits
-            .iter()
-            .any(|bit| !matches!(*bit, SymbolicBit::Literal(_)))
+        self.bits.iter().any(|bit| bit.maybe_literal().is_none())
     }
 
     pub fn equals(self, rhs: Self) -> SymbolicBit {
@@ -396,7 +394,7 @@ impl SymbolicBitVec {
     pub fn addition_carry_bits(self, rhs: Self) -> Self {
         assert_eq!(self.bits.len(), rhs.bits.len());
         let mut carry = VecDeque::with_capacity(self.bits.len() + 1);
-        carry.push_back(FALSE);
+        carry.push_back(SymbolicBit::zero());
         carry.push_back(self[0].clone() & rhs[0].clone());
         for i in 1..self.bits.len() {
             carry.push_back(
@@ -434,12 +432,13 @@ impl SymbolicBitVec {
     pub fn less_than(mut self, mut rhs: Self) -> SymbolicBit {
         assert_eq!(self.len(), rhs.len());
         if self.is_empty() {
-            return FALSE;
+            return SymbolicBit::zero();
         }
 
         let lhs_msb = self.bits.pop_back().unwrap();
         let rhs_msb = rhs.bits.pop_back().unwrap();
-        let less_than = lhs_msb.clone().equals(FALSE) & rhs_msb.clone().equals(TRUE);
+        let less_than = lhs_msb.clone().equals(SymbolicBit::zero())
+            & rhs_msb.clone().equals(SymbolicBit::one());
 
         if self.bits.is_empty() {
             less_than
@@ -455,12 +454,13 @@ impl SymbolicBitVec {
     pub fn greater_than(mut self, mut rhs: Self) -> SymbolicBit {
         assert_eq!(self.len(), rhs.len());
         if self.is_empty() {
-            return FALSE;
+            return SymbolicBit::zero();
         }
 
         let lhs_msb = self.bits.pop_back().unwrap();
         let rhs_msb = rhs.bits.pop_back().unwrap();
-        let greater_than = lhs_msb.clone().equals(TRUE) & rhs_msb.clone().equals(FALSE);
+        let greater_than = lhs_msb.clone().equals(SymbolicBit::one())
+            & rhs_msb.clone().equals(SymbolicBit::zero());
 
         if self.is_empty() {
             greater_than
@@ -476,13 +476,13 @@ impl SymbolicBitVec {
     pub fn signed_less_than(self, rhs: Self) -> SymbolicBit {
         assert_eq!(self.len(), rhs.len());
         if self.is_empty() {
-            return FALSE;
+            return SymbolicBit::zero();
         }
 
         let lhs_sign_bit = self.msb().cloned().unwrap();
         let rhs_sign_bit = rhs.msb().cloned().unwrap();
-        let mixed_sign_case =
-            lhs_sign_bit.clone().equals(TRUE) & rhs_sign_bit.clone().equals(FALSE);
+        let mixed_sign_case = lhs_sign_bit.clone().equals(SymbolicBit::one())
+            & rhs_sign_bit.clone().equals(SymbolicBit::zero());
         let same_sign_case = lhs_sign_bit.equals(rhs_sign_bit) & self.less_than(rhs);
 
         mixed_sign_case | same_sign_case
@@ -496,8 +496,8 @@ impl SymbolicBitVec {
         assert_eq!(self.len(), rhs.len());
         let lhs_sign_bit = self[self.len() - 1].clone();
         let rhs_sign_bit = rhs[rhs.len() - 1].clone();
-        let mixed_sign_case =
-            lhs_sign_bit.clone().equals(FALSE) & rhs_sign_bit.clone().equals(TRUE);
+        let mixed_sign_case = lhs_sign_bit.clone().equals(SymbolicBit::zero())
+            & rhs_sign_bit.clone().equals(SymbolicBit::one());
         let same_sign_case = lhs_sign_bit.equals(rhs_sign_bit) & self.greater_than(rhs);
 
         mixed_sign_case | same_sign_case

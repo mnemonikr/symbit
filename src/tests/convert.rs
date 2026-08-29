@@ -66,7 +66,7 @@ fn bool_happy() {
 
 #[test]
 fn bool_error() {
-    let err = bool::try_from(SymbolicBit::Variable(0)).unwrap_err();
+    let err = bool::try_from(SymbolicBit::variable(0)).unwrap_err();
     assert!(matches!(
         err,
         ConcretizationError::NonLiteralBit { bit_index: 0 }
@@ -126,7 +126,7 @@ fn concretize_overflow_err() {
 
 #[test]
 fn concretize_symbolic_err() {
-    let byte = SymbolicByte::from(SymbolicBit::Variable(0));
+    let byte = SymbolicByte::from(SymbolicBit::variable(0));
     let array = [byte];
     let err = concretize::<u8, 1>(array.iter()).unwrap_err();
     assert!(matches!(
